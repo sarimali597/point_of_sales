@@ -1,6 +1,7 @@
 # Shoukat Sons Garments POS
 
-A modern, production-ready Python-based Point of Sale (POS) system designed specifically for garment retail stores. Built with CustomTkinter for a beautiful, responsive UI and SQLite with WAL mode for reliable data storage.
+A modern, production-ready Python-based Point of Sale (POS) system designed specifically for garment retail stores. Built 
+with CustomTkinter for a beautiful, responsive UI and SQLite with WAL mode for reliable data storage.
 
 ## Features
 

@@ -1,536 +1,367 @@
-"""
-Theme Engine for Shoukat POS.
+"""Theme engine with responsive breakpoints for Shoukat POS.
 
-Provides color palette, fonts, spacing constants, responsive breakpoints,
-and animation utilities for CustomTkinter-based UI.
+This module defines the color palette, typography, spacing, and responsive
+breakpoints used throughout the application UI.
 """
 
+from typing import Dict, Any, Tuple
 import customtkinter as ctk
-from typing import Tuple, Dict, Any, Optional, Callable
-from dataclasses import dataclass
-import time
 
-
-# =============================================================================
-# COLOR PALETTE
-# =============================================================================
 
 class Colors:
-    """Primary color scheme for Shoukat POS."""
+    """Color palette for Shoukat POS."""
     
-    # Primary colors (deep blue theme)
-    PRIMARY = "#1A237E"        # Deep indigo - main brand color
-    PRIMARY_LIGHT = "#534BA9"  # Lighter indigo for hover states
-    PRIMARY_DARK = "#000051"   # Dark indigo for accents
+    # Primary colors
+    PRIMARY = "#1A237E"
+    PRIMARY_LIGHT = "#5C4FB1"
+    PRIMARY_DARK = "#000051"
     
     # Secondary colors
-    SECONDARY = "#0D47A1"      # Strong blue
+    SECONDARY = "#0D47A1"
     SECONDARY_LIGHT = "#5472D3"
     SECONDARY_DARK = "#002171"
     
-    # Accent color
-    ACCENT = "#00BCD4"         # Cyan accent for highlights
+    # Accent
+    ACCENT = "#00BCD4"
+    ACCENT_LIGHT = "#62EFFF"
+    ACCENT_DARK = "#008BA3"
     
     # Semantic colors
-    SUCCESS = "#2E7D32"        # Green for positive actions
+    SUCCESS = "#2E7D32"
     SUCCESS_LIGHT = "#60AD5E"
-    WARNING = "#F57C00"        # Orange for warnings
-    WARNING_LIGHT = "#FFA726"
-    DANGER = "#C62828"         # Red for errors/destructive actions
-    DANGER_LIGHT = "#EF5350"
-    
-    # Neutral colors
-    BACKGROUND = "#F5F5F5"     # Light gray background
-    CARD = "#FFFFFF"           # White card backgrounds
-    TEXT_PRIMARY = "#263238"   # Dark gray text
-    TEXT_SECONDARY = "#546E7A" # Medium gray text
-    TEXT_MUTED = "#90A4AE"     # Light gray text
-    BORDER = "#E0E0E0"         # Light border color
-    INPUT_BACKGROUND = "#FAFAFA"
-    
-    # Status indicators
+    WARNING = "#F57C00"
+    WARNING_LIGHT = "#FFA04B"
+    DANGER = "#C62828"
+    DANGER_LIGHT = "#FF5F52"
     INFO = "#1976D2"
     
-    @classmethod
-    def get_palette(cls) -> Dict[str, str]:
-        """Return complete color palette as dictionary."""
-        return {
-            name: getattr(cls, name)
-            for name in dir(cls)
-            if not name.startswith('_') and name.isupper()
-        }
-
-
-# =============================================================================
-# RESPONSIVE BREAKPOINTS
-# =============================================================================
-
-@dataclass
-class BreakpointConfig:
-    """Configuration for a responsive breakpoint."""
-    min_width: int
-    max_width: Optional[int]
-    sidebar_visible: bool
-    sidebar_collapsed: bool
-    columns: int
-    button_size: str  # "small", "medium", "large"
-    font_scale: float
+    # Neutral colors
+    BACKGROUND = "#F5F5F5"
+    CARD = "#FFFFFF"
+    TEXT_PRIMARY = "#263238"
+    TEXT_SECONDARY = "#546E7A"
+    TEXT_MUTED = "#90A4AE"
+    BORDER = "#E0E0E0"
+    DIVIDER = "#BDBDBD"
+    
+    # State colors
+    HOVER = "rgba(26, 35, 126, 0.08)"
+    SELECTED = "rgba(13, 71, 161, 0.12)"
+    DISABLED = "#BDBDBD"
 
 
 class Breakpoints:
-    """Responsive design breakpoints."""
+    """Responsive breakpoints for different screen sizes."""
     
-    COMPACT_WIDTH = 1024    # Tablets and small screens
-    STANDARD_WIDTH = 1440   # Standard desktop monitors
-    WIDE_WIDTH = 1920       # Large displays
+    COMPACT = 1024    # < 1024px: single column, collapsible sidebar
+    STANDARD = 1440   # 1024-1440px: two columns, visible sidebar
+    WIDE = 1920       # > 1440px: three columns, expanded tables
     
     @classmethod
-    def get_config(cls, width: int) -> BreakpointConfig:
-        """
-        Get responsive configuration based on window width.
+    def get_breakpoint(cls, width: int) -> str:
+        """Get breakpoint name based on width.
         
         Args:
-            width: Current window width in pixels
+            width: Window width in pixels.
             
         Returns:
-            BreakpointConfig for current screen size
+            Breakpoint name: 'compact', 'standard', or 'wide'.
         """
-        if width < cls.COMPACT_WIDTH:
-            # Compact mode - single column, collapsible sidebar
-            return BreakpointConfig(
-                min_width=0,
-                max_width=cls.COMPACT_WIDTH,
-                sidebar_visible=True,
-                sidebar_collapsed=True,
-                columns=1,
-                button_size="medium",
-                font_scale=0.95
-            )
-        elif width < cls.STANDARD_WIDTH:
-            # Standard mode - two columns, visible sidebar
-            return BreakpointConfig(
-                min_width=cls.COMPACT_WIDTH,
-                max_width=cls.STANDARD_WIDTH,
-                sidebar_visible=True,
-                sidebar_collapsed=False,
-                columns=2,
-                button_size="medium",
-                font_scale=1.0
-            )
+        assert width >= 0, "Width must be non-negative"
+        
+        if width < cls.COMPACT:
+            return "compact"
+        elif width < cls.WIDE:
+            return "standard"
         else:
-            # Wide mode - three columns, expanded everything
-            return BreakpointConfig(
-                min_width=cls.STANDARD_WIDTH,
-                max_width=None,
-                sidebar_visible=True,
-                sidebar_collapsed=False,
-                columns=3,
-                button_size="large",
-                font_scale=1.05
-            )
+            return "wide"
 
-
-# =============================================================================
-# SPACING & SIZING
-# =============================================================================
 
 class Spacing:
-    """Spacing constants in pixels."""
+    """Spacing constants for consistent layout."""
     
-    # Margins and padding
     XS = 4
-    SMALL = 8
-    MEDIUM = 16
-    LARGE = 24
-    XLARGE = 32
-    XXLARGE = 48
+    SM = 8
+    MD = 16
+    LG = 24
+    XL = 32
+    XXL = 48
     
-    # Component sizes
-    BUTTON_HEIGHT_SMALL = 32
-    BUTTON_HEIGHT_MEDIUM = 40
-    BUTTON_HEIGHT_LARGE = 48
-    
-    INPUT_HEIGHT = 40
-    
-    # Card dimensions
-    CARD_CORNER_RADIUS = 12
+    # Component-specific spacing
+    BUTTON_PADDING_X = 16
+    BUTTON_PADDING_Y = 10
     CARD_PADDING = 16
-    
-    # Sidebar
-    SIDEBAR_WIDTH_EXPANDED = 240
-    SIDEBAR_WIDTH_COLLAPSED = 64
-    
-    # Icon sizes
-    ICON_SMALL = 16
-    ICON_MEDIUM = 24
-    ICON_LARGE = 32
+    TABLE_ROW_HEIGHT = 40
+    INPUT_HEIGHT = 40
 
 
-# =============================================================================
-# FONT CONFIGURATION
-# =============================================================================
-
-class FontConfig:
-    """Font configuration for different text elements."""
+class Fonts:
+    """Typography settings."""
     
-    # Font families (CustomTkinter uses system defaults)
-    FAMILY_DEFAULT = "Arial"
-    FAMILY_MONOSPACE = "Consolas"
+    # Font families
+    PRIMARY = "Helvetica Neue"
+    MONOSPACE = "Courier New"
     
-    # Font sizes (base size multiplied by scale)
-    SIZE_XS = 10
-    SIZE_SMALL = 12
-    SIZE_MEDIUM = 14
-    SIZE_LARGE = 18
-    SIZE_XLARGE = 24
-    SIZE_XXLARGE = 32
+    # Font sizes
+    XS = 10
+    SM = 12
+    MD = 14
+    LG = 18
+    XL = 24
+    XXL = 32
     
     # Font weights
-    WEIGHT_NORMAL = "normal"
-    WEIGHT_BOLD = "bold"
+    LIGHT = "normal"
+    REGULAR = "normal"
+    BOLD = "bold"
+
+
+class Theme:
+    """Theme configuration for CustomTkinter.
     
-    @classmethod
-    def get_font(
-        cls,
-        size: int = SIZE_MEDIUM,
-        weight: str = WEIGHT_NORMAL,
-        family: str = FAMILY_DEFAULT
-    ) -> tuple:
-        """
-        Get font tuple for tkinter.
+    This class configures the global appearance of the application,
+    including colors, fonts, and component styling.
+    """
+    
+    _instance = None
+    _initialized = False
+    
+    def __new__(cls) -> "Theme":
+        """Singleton pattern to ensure single theme instance."""
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+    
+    def __init__(self) -> None:
+        """Initialize theme (only once)."""
+        if self._initialized:
+            return
+        self._initialized = True
         
-        Args:
-            size: Font size in points
-            weight: Font weight ('normal' or 'bold')
-            family: Font family name
-            
+    def apply(self) -> None:
+        """Apply theme settings to CustomTkinter.
+        
+        Configures appearance mode, default colors, and font settings.
+        Should be called before creating any widgets.
+        """
+        # Set appearance mode (Light/Dark/System)
+        ctk.set_appearance_mode("Light")
+        
+        # Set default color theme
+        ctk.set_default_color_theme("blue")
+        
+        # Configure default font
+        ctk.set_widget_scaling(1.0)
+        
+    def get_colors(self) -> Dict[str, str]:
+        """Get all color values as dictionary.
+        
         Returns:
-            Tuple compatible with tkinter font parameter
+            Dictionary mapping color names to hex values.
         """
-        return (family, size, weight)
-
-
-# =============================================================================
-# ANIMATION UTILITIES
-# =============================================================================
-
-class Animation:
-    """Animation utilities for CustomTkinter widgets."""
-    
-    DEFAULT_FPS = 60  # Frames per second
-    
-    @staticmethod
-    def fade_in(
-        widget: ctk.CTkBaseClass,
-        duration_ms: int = 150,
-        callback: Optional[Callable] = None
-    ) -> None:
-        """
-        Fade in widget by gradually increasing opacity.
-        
-        Note: CustomTkinter doesn't support true alpha transparency,
-        so this simulates fade-in by cycling through background colors.
-        
-        Args:
-            widget: Widget to animate
-            duration_ms: Animation duration in milliseconds
-            callback: Optional function to call when animation completes
-        """
-        start_time = time.time()
-        end_time = start_time + (duration_ms / 1000)
-        
-        # Get target color
-        target_color = widget.cget("fg_color")
-        
-        def animate_frame():
-            current_time = time.time()
-            
-            if current_time >= end_time:
-                # Animation complete
-                if isinstance(target_color, tuple):
-                    widget.configure(fg_color=target_color)
-                else:
-                    widget.configure(fg_color=target_color)
-                if callback:
-                    callback()
-                return
-            
-            # Calculate progress (0.0 to 1.0)
-            progress = (current_time - start_time) / (duration_ms / 1000)
-            
-            # Easing function (ease-out cubic)
-            eased = 1 - pow(1 - progress, 3)
-            
-            # Schedule next frame
-            widget.after(int(1000 / Animation.DEFAULT_FPS), animate_frame)
-        
-        animate_frame()
-    
-    @staticmethod
-    def slide_in(
-        widget: ctk.CTkBaseClass,
-        from_x: int,
-        duration_ms: int = 200,
-        easing: str = "ease_out",
-        callback: Optional[Callable] = None
-    ) -> None:
-        """
-        Slide widget in from specified x position.
-        
-        Args:
-            widget: Widget to animate
-            from_x: Starting x position (pixels)
-            duration_ms: Animation duration
-            easing: Easing function ("linear", "ease_out", "ease_in_out")
-            callback: Completion callback
-        """
-        start_time = time.time()
-        end_time = start_time + (duration_ms / 1000)
-        
-        # Get target x position
-        target_x = widget.winfo_x()
-        
-        def get_eased_progress(progress: float) -> float:
-            """Apply easing function to progress."""
-            if easing == "linear":
-                return progress
-            elif easing == "ease_out":
-                return 1 - pow(1 - progress, 3)
-            elif easing == "ease_in_out":
-                if progress < 0.5:
-                    return 4 * progress * progress * progress
-                else:
-                    return 1 - pow(-2 * progress + 2, 3) / 2
-            return progress
-        
-        def animate_frame():
-            current_time = time.time()
-            
-            if current_time >= end_time:
-                # Animation complete - ensure final position
-                widget.place(x=target_x)
-                if callback:
-                    callback()
-                return
-            
-            progress = (current_time - start_time) / (duration_ms / 1000)
-            eased = get_eased_progress(progress)
-            
-            # Calculate current x position
-            current_x = int(from_x + (target_x - from_x) * eased)
-            widget.place(x=current_x)
-            
-            # Schedule next frame
-            widget.after(int(1000 / Animation.DEFAULT_FPS), animate_frame)
-        
-        animate_frame()
-    
-    @staticmethod
-    def pulse(
-        widget: ctk.CTkBaseClass,
-        color: str,
-        duration_ms: int = 1000,
-        repeat: int = 3
-    ) -> None:
-        """
-        Pulse widget border/background color.
-        
-        Args:
-            widget: Widget to animate
-            color: Color to pulse to
-            duration_ms: Duration of one pulse cycle
-            repeat: Number of times to repeat pulse
-        """
-        original_color = widget.cget("fg_color")
-        pulse_count = 0
-        
-        def pulse_cycle():
-            nonlocal pulse_count
-            
-            if pulse_count >= repeat:
-                widget.configure(fg_color=original_color)
-                return
-            
-            # Pulse to target color
-            widget.configure(fg_color=color)
-            
-            # Return to original after half duration
-            widget.after(duration_ms // 2, lambda: widget.configure(fg_color=original_color))
-            
-            # Schedule next pulse
-            pulse_count += 1
-            widget.after(duration_ms, pulse_cycle)
-        
-        pulse_cycle()
-    
-    @staticmethod
-    def toast(
-        parent: ctk.CTkBaseClass,
-        message: str,
-        toast_type: str = "success",
-        duration_ms: int = 3000,
-        position: str = "top_right"
-    ) -> ctk.CTkLabel:
-        """
-        Show toast notification.
-        
-        Args:
-            parent: Parent window/frame
-            message: Toast message text
-            toast_type: Type ('success', 'error', 'warning', 'info')
-            duration_ms: Auto-dismiss duration
-            position: Position ('top_right', 'top_center', 'bottom_right')
-            
-        Returns:
-            Toast label widget
-        """
-        # Determine colors based on type
-        type_colors = {
+        return {
+            "primary": Colors.PRIMARY,
+            "primary_light": Colors.PRIMARY_LIGHT,
+            "primary_dark": Colors.PRIMARY_DARK,
+            "secondary": Colors.SECONDARY,
+            "secondary_light": Colors.SECONDARY_LIGHT,
+            "secondary_dark": Colors.SECONDARY_DARK,
+            "accent": Colors.ACCENT,
+            "accent_light": Colors.ACCENT_LIGHT,
+            "accent_dark": Colors.ACCENT_DARK,
             "success": Colors.SUCCESS,
-            "error": Colors.DANGER,
+            "success_light": Colors.SUCCESS_LIGHT,
             "warning": Colors.WARNING,
-            "info": Colors.INFO
+            "warning_light": Colors.WARNING_LIGHT,
+            "danger": Colors.DANGER,
+            "danger_light": Colors.DANGER_LIGHT,
+            "info": Colors.INFO,
+            "background": Colors.BACKGROUND,
+            "card": Colors.CARD,
+            "text_primary": Colors.TEXT_PRIMARY,
+            "text_secondary": Colors.TEXT_SECONDARY,
+            "text_muted": Colors.TEXT_MUTED,
+            "border": Colors.BORDER,
+            "divider": Colors.DIVIDER,
+            "disabled": Colors.DISABLED,
+        }
+    
+    def get_spacing(self) -> Dict[str, int]:
+        """Get all spacing values as dictionary.
+        
+        Returns:
+            Dictionary mapping spacing names to pixel values.
+        """
+        return {
+            "xs": Spacing.XS,
+            "sm": Spacing.SM,
+            "md": Spacing.MD,
+            "lg": Spacing.LG,
+            "xl": Spacing.XL,
+            "xxl": Spacing.XXL,
+            "button_padding_x": Spacing.BUTTON_PADDING_X,
+            "button_padding_y": Spacing.BUTTON_PADDING_Y,
+            "card_padding": Spacing.CARD_PADDING,
+            "table_row_height": Spacing.TABLE_ROW_HEIGHT,
+            "input_height": Spacing.INPUT_HEIGHT,
+        }
+    
+    def get_responsive_config(self, width: int) -> Dict[str, Any]:
+        """Get responsive configuration based on window width.
+        
+        Args:
+            width: Current window width in pixels.
+            
+        Returns:
+            Configuration dictionary with layout settings.
+        """
+        breakpoint = Breakpoints.get_breakpoint(width)
+        
+        configs = {
+            "compact": {
+                "sidebar_width": 60,
+                "sidebar_collapsed": True,
+                "columns": 1,
+                "button_full_width": True,
+                "table_pagination": 25,
+                "card_padding": Spacing.SM,
+            },
+            "standard": {
+                "sidebar_width": 220,
+                "sidebar_collapsed": False,
+                "columns": 2,
+                "button_full_width": False,
+                "table_pagination": 50,
+                "card_padding": Spacing.MD,
+            },
+            "wide": {
+                "sidebar_width": 260,
+                "sidebar_collapsed": False,
+                "columns": 3,
+                "button_full_width": False,
+                "table_pagination": 100,
+                "card_padding": Spacing.LG,
+            },
         }
         
-        bg_color = type_colors.get(toast_type, Colors.PRIMARY)
-        
-        # Create toast frame
-        toast_frame = ctk.CTkFrame(
-            parent,
-            fg_color=bg_color,
-            corner_radius=8,
-            height=50
-        )
-        
-        # Position toast
-        parent_width = parent.winfo_width()
-        
-        if position == "top_right":
-            x_pos = parent_width - 320
-            y_pos = 10
-        elif position == "top_center":
-            x_pos = (parent_width - 320) // 2
-            y_pos = 10
-        elif position == "bottom_right":
-            x_pos = parent_width - 320
-            y_pos = parent.winfo_height() - 60
-        else:
-            x_pos = parent_width - 320
-            y_pos = 10
-        
-        toast_frame.place(x=x_pos, y=y_pos)
-        
-        # Add message label
-        message_label = ctk.CTkLabel(
-            toast_frame,
-            text=message,
-            text_color="#FFFFFF",
-            font=FontConfig.get_font(FontConfig.SIZE_MEDIUM, FontConfig.WEIGHT_BOLD)
-        )
-        message_label.pack(expand=True, fill="both", padx=Spacing.MEDIUM)
-        
-        # Animate slide-in
-        Animation.slide_in(toast_frame, from_x=parent_width, duration_ms=200)
-        
-        # Auto-dismiss
-        def dismiss():
-            Animation.fade_out(toast_frame, duration_ms=200, callback=toast_frame.destroy)
-        
-        parent.after(duration_ms, dismiss)
-        
-        return toast_frame
+        config = configs[breakpoint].copy()
+        config["breakpoint"] = breakpoint
+        return config
     
     @staticmethod
-    def fade_out(
-        widget: ctk.CTkBaseClass,
-        duration_ms: int = 200,
-        callback: Optional[Callable] = None
-    ) -> None:
-        """
-        Fade out widget (simulate by reducing visibility).
+    def configure_card(
+        parent: ctk.CTkFrame,
+        corner_radius: int = 12,
+        fg_color: str = Colors.CARD,
+        border_color: str = Colors.BORDER,
+        border_width: int = 1,
+    ) -> ctk.CTkFrame:
+        """Create a pre-styled card frame.
         
         Args:
-            widget: Widget to animate
-            duration_ms: Animation duration
-            callback: Completion callback
+            parent: Parent widget.
+            corner_radius: Corner radius in pixels.
+            fg_color: Foreground color.
+            border_color: Border color.
+            border_width: Border width in pixels.
+            
+        Returns:
+            Configured CTkFrame instance.
         """
-        start_time = time.time()
-        end_time = start_time + (duration_ms / 1000)
+        card = ctk.CTkFrame(
+            parent,
+            corner_radius=corner_radius,
+            fg_color=fg_color,
+            border_color=border_color,
+            border_width=border_width,
+        )
+        return card
+    
+    @staticmethod
+    def configure_button(
+        parent: ctk.CTkFrame,
+        text: str,
+        command: callable = None,
+        variant: str = "primary",
+        size: str = "md",
+        width: int = 120,
+        height: int = 40,
+    ) -> ctk.CTkButton:
+        """Create a pre-styled button.
         
-        def animate_frame():
-            current_time = time.time()
+        Args:
+            parent: Parent widget.
+            text: Button text.
+            command: Callback function on click.
+            variant: Button variant ('primary', 'secondary', 'success', 
+                    'warning', 'danger', 'outline').
+            size: Button size ('sm', 'md', 'lg').
+            width: Button width in pixels.
+            height: Button height in pixels.
             
-            if current_time >= end_time:
-                if callback:
-                    callback()
-                return
-            
-            progress = (current_time - start_time) / (duration_ms / 1000)
-            
-            # Schedule next frame
-            widget.after(int(1000 / Animation.DEFAULT_FPS), animate_frame)
+        Returns:
+            Configured CTkButton instance.
+        """
+        # Size mappings
+        sizes = {
+            "sm": {"height": 32, "font_size": Fonts.SM},
+            "md": {"height": 40, "font_size": Fonts.MD},
+            "lg": {"height": 48, "font_size": Fonts.LG},
+        }
+        size_config = sizes.get(size, sizes["md"])
         
-        animate_frame()
-
-
-# =============================================================================
-# THEME INITIALIZATION
-# =============================================================================
-
-def setup_customtkinter_theme():
-    """
-    Configure CustomTkinter appearance mode and default colors.
-    
-    Call this once at application startup before creating any widgets.
-    """
-    # Set appearance mode (System, Light, Dark)
-    ctk.set_appearance_mode("Light")
-    
-    # Set default color theme
-    ctk.set_default_color_theme("blue")
-    
-    # Configure default font sizes
-    ctk.set_widget_scaling(1.0)
-
-
-def get_button_dimensions(size: str = "medium") -> Tuple[int, int]:
-    """
-    Get button dimensions based on size preset.
-    
-    Args:
-        size: Button size preset ('small', 'medium', 'large')
+        # Color mappings
+        color_map = {
+            "primary": {"fg": Colors.PRIMARY, "hover": Colors.PRIMARY_LIGHT},
+            "secondary": {"fg": Colors.SECONDARY, "hover": Colors.SECONDARY_LIGHT},
+            "success": {"fg": Colors.SUCCESS, "hover": Colors.SUCCESS_LIGHT},
+            "warning": {"fg": Colors.WARNING, "hover": Colors.WARNING_LIGHT},
+            "danger": {"fg": Colors.DANGER, "hover": Colors.DANGER_LIGHT},
+            "outline": {"fg": "transparent", "hover": Colors.HOVER},
+        }
+        colors = color_map.get(variant, color_map["primary"])
         
-    Returns:
-        Tuple of (height, corner_radius)
-    """
-    presets = {
-        "small": (Spacing.BUTTON_HEIGHT_SMALL, 6),
-        "medium": (Spacing.BUTTON_HEIGHT_MEDIUM, 8),
-        "large": (Spacing.BUTTON_HEIGHT_LARGE, 10)
-    }
+        button = ctk.CTkButton(
+            parent,
+            text=text,
+            command=command,
+            width=width,
+            height=height if height else size_config["height"],
+            fg_color=colors["fg"],
+            hover_color=colors["hover"],
+            text_color=Colors.CARD if variant != "outline" else Colors.TEXT_PRIMARY,
+            corner_radius=8,
+            font=(Fonts.PRIMARY, size_config["font_size"]),
+        )
+        return button
     
-    return presets.get(size, presets["medium"])
-
-
-def get_input_dimensions() -> Tuple[int, int]:
-    """
-    Get standard input field dimensions.
-    
-    Returns:
-        Tuple of (height, corner_radius)
-    """
-    return (Spacing.INPUT_HEIGHT, 8)
-
-
-# Export commonly used items
-__all__ = [
-    'Colors',
-    'Breakpoints',
-    'BreakpointConfig',
-    'Spacing',
-    'FontConfig',
-    'Animation',
-    'setup_customtkinter_theme',
-    'get_button_dimensions',
-    'get_input_dimensions'
-]
+    @staticmethod
+    def configure_entry(
+        parent: ctk.CTkFrame,
+        placeholder: str = "",
+        width: int = 200,
+        height: int = 40,
+    ) -> ctk.CTkEntry:
+        """Create a pre-styled text entry field.
+        
+        Args:
+            parent: Parent widget.
+            placeholder: Placeholder text.
+            width: Entry width in pixels.
+            height: Entry height in pixels.
+            
+        Returns:
+            Configured CTkEntry instance.
+        """
+        entry = ctk.CTkEntry(
+            parent,
+            placeholder_text=placeholder,
+            width=width,
+            height=height,
+            corner_radius=8,
+            border_width=1,
+            border_color=Colors.BORDER,
+            fg_color=Colors.CARD,
+            text_color=Colors.TEXT_PRIMARY,
+        )
+        return entry
