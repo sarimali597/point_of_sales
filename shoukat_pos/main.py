@@ -62,8 +62,8 @@ def main() -> None:
     ctk.set_default_color_theme("blue")  # 'blue', 'green', 'dark-blue'
     
     # Create main application window
-    from ui.app import POSApp
-    app = POSApp()
+    from ui.app import App
+    app = App()
     
     # Start the event loop
     try:
