@@ -1,128 +1,226 @@
-"""Dashboard screen with auto-refreshing stat cards."""
+"""
+Dashboard Screen for Shoukat POS.
 
-from typing import Any, Optional
+Displays real-time statistics and recent activity from the database.
+"""
 import customtkinter as ctk
-from ui.theme import Colors, Fonts
+from datetime import datetime, timedelta
+from typing import Optional
+from database.connection import ConnectionManager
+# Fix: Import Colors and Fonts from ui.theme, not ui.components
+from ui.theme import Colors, Fonts 
 from ui.components import StatCard
 
 
 class DashboardScreen(ctk.CTkFrame):
-    """Dashboard screen displaying key metrics and quick actions."""
+    """Real-time dashboard with actual data from database."""
     
-    def __init__(self, parent: ctk.CTkFrame, *args: Any, **kwargs: Any) -> None:
-        """Initialize the dashboard screen.
+    def __init__(self, master, **kwargs):
+        super().__init__(master, **kwargs)
         
-        Args:
-            parent: Parent widget.
-            *args: Additional positional arguments.
-            **kwargs: Additional keyword arguments.
-        """
-        super().__init__(parent, fg_color=Colors.BACKGROUND, *args, **kwargs)
+        self.connection_manager = ConnectionManager.get_instance()
+        
+        # Store references to cards for updates
+        self.today_sales_card: Optional[StatCard] = None
+        self.orders_card: Optional[StatCard] = None
+        self.low_stock_card: Optional[StatCard] = None
+        self.credit_due_card: Optional[StatCard] = None
+        self.activity_label: Optional[ctk.CTkLabel] = None
         
         self._build_dashboard()
-    
-    def _build_dashboard(self) -> None:
-        """Build the dashboard layout."""
-        # Title
-        title_label = ctk.CTkLabel(
-            self,
-            text="Dashboard",
-            font=(Fonts.PRIMARY, Fonts.XL, Fonts.BOLD),
-            text_color=Colors.TEXT_PRIMARY,
-        )
-        title_label.pack(anchor="w", padx=24, pady=(24, 16))
         
-        # Stats grid
+        # Refresh data after a short delay to allow UI to render
+        self.after(100, self._refresh_data)
+        
+        # Auto-refresh every 30 seconds
+        self.after(30000, self._refresh_data)
+        
+    def _build_dashboard(self):
+        """Build the dashboard UI layout."""
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(1, weight=1)
+        
+        # Apply theme colors
+        bg_color = Colors.BACKGROUND
+        card_bg = Colors.CARD
+        
+        # Header
+        header = ctk.CTkFrame(self, height=80, fg_color="transparent")
+        header.grid(row=0, column=0, sticky="ew", padx=20, pady=20)
+        header.grid_columnconfigure(0, weight=1)
+        
+        title = ctk.CTkLabel(
+            header, 
+            text="Dashboard", 
+            font=(Fonts.PRIMARY, 28, Fonts.BOLD),
+            text_color=Colors.TEXT_PRIMARY
+        )
+        title.grid(row=0, column=0, sticky="w")
+        
+        date_str = datetime.now().strftime("%d %B %Y")
+        subtitle = ctk.CTkLabel(
+            header, 
+            text=f"Last updated: {date_str}", 
+            font=(Fonts.PRIMARY, 12),
+            text_color=Colors.TEXT_SECONDARY
+        )
+        subtitle.grid(row=1, column=0, sticky="w", pady=(5,0))
+        
+        # Stats Grid
         stats_frame = ctk.CTkFrame(self, fg_color="transparent")
-        stats_frame.pack(fill="x", padx=24, pady=8)
+        stats_frame.grid(row=1, column=0, sticky="nsew", padx=20, pady=10)
+        stats_frame.grid_columnconfigure((0,1,2,3), weight=1)
+        stats_frame.grid_rowconfigure(0, weight=1)
         
-        # Configure grid for 4 columns
-        for i in range(4):
-            stats_frame.grid_columnconfigure(i, weight=1)
-        
-        # Today's Sales card
-        sales_card = StatCard(
-            stats_frame,
-            title="Today's Sales",
-            value="Rs. 0",
-            change=None,
-            icon="💰",
+        # Create 4 stat cards
+        self.today_sales_card = StatCard(
+            stats_frame, 
+            "Today's Sales", 
+            "Rs. 0", 
+            "+0%", 
+            Colors.SUCCESS
         )
-        sales_card.grid(row=0, column=0, padx=8, pady=8, sticky="ew")
+        self.today_sales_card.grid(row=0, column=0, padx=10, sticky="ew")
         
-        # Total Orders card
-        orders_card = StatCard(
-            stats_frame,
-            title="Total Orders",
-            value="0",
-            change=None,
-            icon="🛍️",
+        self.orders_card = StatCard(
+            stats_frame, 
+            "Orders Today", 
+            "0", 
+            "+0", 
+            Colors.PRIMARY
         )
-        orders_card.grid(row=0, column=1, padx=8, pady=8, sticky="ew")
+        self.orders_card.grid(row=0, column=1, padx=10, sticky="ew")
         
-        # Low Stock card
-        stock_card = StatCard(
-            stats_frame,
-            title="Low Stock Items",
-            value="0",
-            change=None,
-            icon="⚠️",
-            color=Colors.WARNING,
+        self.low_stock_card = StatCard(
+            stats_frame, 
+            "Low Stock Items", 
+            "0", 
+            "Action Needed", 
+            Colors.WARNING
         )
-        stock_card.grid(row=0, column=2, padx=8, pady=8, sticky="ew")
+        self.low_stock_card.grid(row=0, column=2, padx=10, sticky="ew")
         
-        # Customers card
-        customers_card = StatCard(
-            stats_frame,
-            title="Total Customers",
-            value="0",
-            change=None,
-            icon="👥",
+        self.credit_due_card = StatCard(
+            stats_frame, 
+            "Credit Due", 
+            "Rs. 0", 
+            "Outstanding", 
+            Colors.DANGER
         )
-        customers_card.grid(row=0, column=3, padx=8, pady=8, sticky="ew")
+        self.credit_due_card.grid(row=0, column=3, padx=10, sticky="ew")
         
-        # Quick actions section
-        actions_title = ctk.CTkLabel(
-            self,
-            text="Quick Actions",
-            font=(Fonts.PRIMARY, Fonts.LG, Fonts.BOLD),
-            text_color=Colors.TEXT_PRIMARY,
+        # Recent Activity Section
+        activity_frame = ctk.CTkFrame(self, fg_color=card_bg, corner_radius=10)
+        activity_frame.grid(row=2, column=0, sticky="ew", padx=20, pady=20)
+        activity_frame.grid_columnconfigure(0, weight=1)
+        
+        act_title = ctk.CTkLabel(
+            activity_frame, 
+            text="Recent Sales", 
+            font=(Fonts.PRIMARY, 18, Fonts.BOLD),
+            text_color=Colors.TEXT_PRIMARY
         )
-        actions_title.pack(anchor="w", padx=24, pady=(24, 16))
+        act_title.pack(pady=15, padx=15, anchor="w")
         
-        actions_frame = ctk.CTkFrame(self, fg_color="transparent")
-        actions_frame.pack(fill="x", padx=24, pady=8)
-        
-        # New Sale button
-        new_sale_btn = ctk.CTkButton(
-            actions_frame,
-            text="🛍️ New Sale",
-            width=140,
-            height=44,
-            font=(Fonts.PRIMARY, Fonts.MD),
+        self.activity_label = ctk.CTkLabel(
+            activity_frame, 
+            text="Loading recent sales...", 
+            text_color=Colors.TEXT_SECONDARY,
+            font=(Fonts.PRIMARY, 14)
         )
-        new_sale_btn.pack(side="left", padx=8)
+        self.activity_label.pack(pady=20)
         
-        # Add Product button
-        add_product_btn = ctk.CTkButton(
-            actions_frame,
-            text="👕 Add Product",
-            width=140,
-            height=44,
-            fg_color=Colors.SECONDARY,
-            hover_color=Colors.SECONDARY_LIGHT,
-            font=(Fonts.PRIMARY, Fonts.MD),
-        )
-        add_product_btn.pack(side="left", padx=8)
-        
-        # Print Labels button
-        print_labels_btn = ctk.CTkButton(
-            actions_frame,
-            text="🏷️ Print Labels",
-            width=140,
-            height=44,
-            fg_color=Colors.ACCENT,
-            hover_color=Colors.ACCENT_LIGHT,
-            font=(Fonts.PRIMARY, Fonts.MD),
-        )
-        print_labels_btn.pack(side="left", padx=8)
+    def _refresh_data(self):
+        """Fetch real data from database and update UI."""
+        try:
+            conn = self.connection_manager.get_read_connection()
+            cursor = conn.cursor()
+            
+            # 1. Today's Sales Total
+            today_start = datetime.now().strftime("%Y-%m-%d") + " 00:00:00"
+            cursor.execute(
+                """SELECT COALESCE(SUM(grand_total), 0) 
+                   FROM sales 
+                   WHERE sale_date >= ? AND status != 'voided'""",
+                (today_start,)
+            )
+            today_sales = cursor.fetchone()[0] or 0
+            if self.today_sales_card:
+                self.today_sales_card.update_value(f"Rs. {today_sales/100:,.0f}")
+            
+            # 2. Orders Count Today
+            cursor.execute(
+                """SELECT COUNT(*) 
+                   FROM sales 
+                   WHERE sale_date >= ? AND status != 'voided'""",
+                (today_start,)
+            )
+            order_count = cursor.fetchone()[0] or 0
+            if self.orders_card:
+                self.orders_card.update_value(str(order_count))
+            
+            # 3. Low Stock Items (quantity <= reorder_point)
+            cursor.execute(
+                """SELECT COUNT(*) 
+                   FROM variants 
+                   WHERE quantity <= reorder_point"""
+            )
+            low_stock = cursor.fetchone()[0] or 0
+            if self.low_stock_card:
+                self.low_stock_card.update_value(str(low_stock))
+                
+                # Change indicator text based on severity
+                if low_stock > 10:
+                    if hasattr(self.low_stock_card, 'update_indicator'):
+                        self.low_stock_card.update_indicator("Critical", Colors.DANGER)
+                elif low_stock > 0:
+                    if hasattr(self.low_stock_card, 'update_indicator'):
+                        self.low_stock_card.update_indicator("Action Needed", Colors.WARNING)
+                else:
+                    if hasattr(self.low_stock_card, 'update_indicator'):
+                        self.low_stock_card.update_indicator("All Good", Colors.SUCCESS)
+            
+            # 4. Total Credit Due
+            cursor.execute(
+                """SELECT COALESCE(SUM(total_due), 0) 
+                   FROM customers 
+                   WHERE total_due > 0"""
+            )
+            credit_due = cursor.fetchone()[0] or 0
+            if self.credit_due_card:
+                self.credit_due_card.update_value(f"Rs. {credit_due/100:,.0f}")
+            
+            # 5. Recent Sales (Last 5)
+            cursor.execute(
+                """SELECT invoice_number, grand_total, sale_date, customer_id
+                   FROM sales 
+                   WHERE status != 'voided'
+                   ORDER BY sale_date DESC 
+                   LIMIT 5"""
+            )
+            recent_sales = cursor.fetchall()
+            
+            if self.activity_label:
+                if not recent_sales:
+                    self.activity_label.configure(text="No recent sales found")
+                else:
+                    lines = []
+                    for sale in recent_sales:
+                        inv_num = sale[0]
+                        amount = sale[1] / 100
+                        date_str = sale[2][:16].replace("T", " ") if "T" in sale[2] else sale[2]
+                        customer = "Walk-in" if not sale[3] else f"Customer #{sale[3]}"
+                        lines.append(f"{inv_num} - {customer} - Rs. {amount:,.0f} ({date_str})")
+                    
+                    self.activity_label.configure(text="\n".join(lines))
+            
+        except Exception as e:
+            print(f"Error refreshing dashboard: {e}")
+            if self.activity_label:
+                self.activity_label.configure(text="Error loading data")
+        finally:
+            # Schedule next refresh only if widget still exists
+            try:
+                self.after(30000, self._refresh_data)
+            except Exception:
+                pass
