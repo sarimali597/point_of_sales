@@ -1,38 +1,51 @@
-```gitignore
+```
+# Database files
+*.db
+
 # Python
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-
-# Dependencies
-.venv/
-venv/
+.Python
 env/
-requirements.txt.bak
+venv/
+.venv/
+.ENV
+.python-version
+*.pot
+*.pyc
+*.pyo
+*.pyd
+*.so
+.Python
+env.bak/
+venv.bak/
+.venv.bak/
 
-# Logs and temp files
-*.log
-*.tmp
-*.swp
-
-# Environment
-.env
-.env.local
-*.env.*
-
-# Coverage
+# Testing
+.pytest_cache/
 .coverage
-coverage/
 htmlcov/
+coverage/
+.nyc_output/
 
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
+*.tmp
 
 # OS
 .DS_Store
 Thumbs.db
+
+# Logs
+*.log
+
+# Environment
+.env
+.env.local
+*.env.*
 ```
