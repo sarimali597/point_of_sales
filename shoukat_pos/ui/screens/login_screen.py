@@ -1,324 +1,175 @@
-"""
-Login Screen for Shoukat POS.
+"""Login screen for Shoukat POS."""
 
-Provides user authentication interface with username/password fields,
-validation, and integration with AuthService.
-"""
+from typing import Any, Optional
 import customtkinter as ctk
-from tkinter import messagebox
-from typing import Callable, Dict, Any, Optional
-import logging
-
-from ui.theme import Colors, Animation
-from services.auth_service import AuthService, AuthenticationError, AccountLockedError
-from database.connection import ConnectionManager
-
-logger = logging.getLogger(__name__)
+from ui.theme import Colors, Fonts
 
 
 class LoginScreen(ctk.CTkFrame):
-    """
-    Login screen with username and password authentication.
-    
-    Features:
-    - Centered card layout
-    - Password visibility toggle
-    - Input validation
-    - Loading state during authentication
-    - Error handling with toast notifications
-    """
+    """Login screen with username and password fields."""
     
     def __init__(
-        self, 
+        self,
         parent: ctk.CTkFrame,
-        on_login_success: Callable[[Dict[str, Any]], None],
+        on_login: Optional[callable] = None,
+        *args: Any,
         **kwargs: Any
-    ):
-        """
-        Initialize login screen.
+    ) -> None:
+        """Initialize the login screen.
         
         Args:
-            parent: Parent container widget
-            on_login_success: Callback function called with user data on successful login
-            **kwargs: Additional keyword arguments passed to CTkFrame
+            parent: Parent widget.
+            on_login: Callback function when login is successful.
+            *args: Additional positional arguments.
+            **kwargs: Additional keyword arguments.
         """
-        super().__init__(parent, **kwargs)
-        self.parent = parent
-        self.on_login_success = on_login_success
+        super().__init__(parent, fg_color=Colors.BACKGROUND, *args, **kwargs)
         
-        # Get database connection from parent app
-        self.connection_manager = ConnectionManager.get_instance()
-        self.auth_service: Optional[AuthService] = None
+        self.on_login = on_login
         
-        # Configure grid
-        self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(0, weight=1)
-        
-        # Create UI components
-        self._create_login_card()
-        self._bind_events()
-        
-        # Apply fade-in animation
-        Animation.fade_in(self, duration_ms=200)
-        
-        logger.debug("Login screen initialized")
+        self._build_login_screen()
     
-    def _create_login_card(self) -> None:
-        """Create centered login card with form fields."""
-        # Main card container
-        self.card = ctk.CTkFrame(
-            self,
-            corner_radius=15,
+    def _build_login_screen(self) -> None:
+        """Build the login screen layout."""
+        # Center frame
+        center_frame = ctk.CTkFrame(self, fg_color="transparent")
+        center_frame.place(relx=0.5, rely=0.5, anchor="center")
+        
+        # Logo/Title card
+        title_card = ctk.CTkFrame(
+            center_frame,
             fg_color=Colors.CARD,
-            width=400,
-            height=450
+            corner_radius=16,
+            border_width=1,
+            border_color=Colors.BORDER,
         )
-        self.card.place(relx=0.5, rely=0.5, anchor="center")
-        self.card.grid_propagate(False)
+        title_card.pack(pady=(0, 24))
         
-        # Logo/Title area
-        title_frame = ctk.CTkFrame(
-            self.card,
-            fg_color="transparent",
-            height=100
+        # App icon
+        icon_label = ctk.CTkLabel(
+            title_card,
+            text="🏪",
+            font=(Fonts.PRIMARY, 64),
         )
-        title_frame.grid(row=0, column=0, padx=40, pady=(30, 20), sticky="ew")
-        title_frame.grid_propagate(False)
+        icon_label.pack(pady=(32, 16))
         
-        title_label = ctk.CTkLabel(
-            title_frame,
-            text="SHOUKAT SONS",
-            font=ctk.CTkFont(size=22, weight="bold"),
-            text_color=Colors.PRIMARY
+        # App name
+        app_name = ctk.CTkLabel(
+            title_card,
+            text="Shoukat Sons Garments",
+            font=(Fonts.PRIMARY, Fonts.XL, Fonts.BOLD),
+            text_color=Colors.TEXT_PRIMARY,
         )
-        title_label.pack(anchor="w")
+        app_name.pack(pady=(0, 8))
         
+        # Subtitle
         subtitle = ctk.CTkLabel(
-            title_frame,
-            text="Garments POS - Login",
-            font=ctk.CTkFont(size=13),
-            text_color=Colors.TEXT_SECONDARY
+            title_card,
+            text="Point of Sale System",
+            font=(Fonts.PRIMARY, Fonts.MD),
+            text_color=Colors.TEXT_SECONDARY,
         )
-        subtitle.pack(anchor="w")
+        subtitle.pack(pady=(0, 32))
         
-        # Form container
-        form_frame = ctk.CTkFrame(
-            self.card,
-            fg_color="transparent"
+        # Login form card
+        form_card = ctk.CTkFrame(
+            center_frame,
+            fg_color=Colors.CARD,
+            corner_radius=16,
+            border_width=1,
+            border_color=Colors.BORDER,
         )
-        form_frame.grid(row=1, column=0, padx=40, pady=20, sticky="ew")
+        form_card.pack()
         
         # Username field
-        self.username_label = ctk.CTkLabel(
-            form_frame,
+        username_label = ctk.CTkLabel(
+            form_card,
             text="Username",
-            font=ctk.CTkFont(size=13, weight="bold"),
-            text_color=Colors.TEXT_PRIMARY,
-            anchor="w"
+            font=(Fonts.PRIMARY, Fonts.SM),
+            text_color=Colors.TEXT_SECONDARY,
         )
-        self.username_label.grid(row=0, column=0, sticky="ew", pady=(0, 5))
+        username_label.grid(row=0, column=0, padx=24, pady=(24, 8), sticky="w")
         
         self.username_entry = ctk.CTkEntry(
-            form_frame,
-            placeholder_text="Enter your username",
-            height=45,
-            font=ctk.CTkFont(size=14),
+            form_card,
+            placeholder_text="Enter username",
+            width=280,
+            height=44,
+            corner_radius=8,
             border_width=1,
             border_color=Colors.BORDER,
-            fg_color=Colors.INPUT_BACKGROUND
+            fg_color=Colors.BACKGROUND,
         )
-        self.username_entry.grid(row=1, column=0, sticky="ew", pady=(0, 20))
+        self.username_entry.grid(row=1, column=0, padx=24, pady=(0, 16))
         
         # Password field
-        self.password_label = ctk.CTkLabel(
-            form_frame,
+        password_label = ctk.CTkLabel(
+            form_card,
             text="Password",
-            font=ctk.CTkFont(size=13, weight="bold"),
-            text_color=Colors.TEXT_PRIMARY,
-            anchor="w"
+            font=(Fonts.PRIMARY, Fonts.SM),
+            text_color=Colors.TEXT_SECONDARY,
         )
-        self.password_label.grid(row=2, column=0, sticky="ew", pady=(0, 5))
-        
-        # Password entry with toggle
-        password_frame = ctk.CTkFrame(
-            form_frame,
-            fg_color="transparent"
-        )
-        password_frame.grid(row=3, column=0, sticky="ew", pady=(0, 20))
-        password_frame.grid_columnconfigure(0, weight=1)
+        password_label.grid(row=2, column=0, padx=24, pady=(8, 8), sticky="w")
         
         self.password_entry = ctk.CTkEntry(
-            password_frame,
-            placeholder_text="Enter your password",
+            form_card,
+            placeholder_text="Enter password",
             show="•",
-            height=45,
-            font=ctk.CTkFont(size=14),
+            width=280,
+            height=44,
+            corner_radius=8,
             border_width=1,
             border_color=Colors.BORDER,
-            fg_color=Colors.INPUT_BACKGROUND
+            fg_color=Colors.BACKGROUND,
         )
-        self.password_entry.grid(row=0, column=0, sticky="ew")
+        self.password_entry.grid(row=3, column=0, padx=24, pady=(0, 24))
         
-        self.password_toggle_btn = ctk.CTkButton(
-            password_frame,
-            text="👁️",
-            width=45,
-            height=45,
-            command=self._toggle_password_visibility,
-            fg_color=Colors.BORDER,
-            hover_color=Colors.TEXT_MUTED,
-            font=ctk.CTkFont(size=16)
-        )
-        self.password_toggle_btn.grid(row=0, column=1, padx=(5, 0))
-        self._password_visible = False
-        
-        # Login button
-        self.login_btn = ctk.CTkButton(
-            form_frame,
-            text="Login",
-            command=self._attempt_login,
-            height=50,
-            font=ctk.CTkFont(size=16, weight="bold"),
-            fg_color=Colors.PRIMARY,
-            hover_color=Colors.PRIMARY_LIGHT
-        )
-        self.login_btn.grid(row=4, column=0, sticky="ew", pady=(10, 0))
-        
-        # Footer text
-        footer_label = ctk.CTkLabel(
-            self.card,
-            text="Default: admin / admin123",
-            font=ctk.CTkFont(size=11),
-            text_color=Colors.TEXT_MUTED
-        )
-        footer_label.grid(row=2, column=0, pady=(0, 20))
-    
-    def _bind_events(self) -> None:
-        """Bind keyboard events for better UX."""
-        # Enter key to submit
-        self.bind("<Return>", lambda e: self._attempt_login())
-        self.username_entry.bind("<Return>", lambda e: self.password_entry.focus())
+        # Bind Enter key to login
         self.password_entry.bind("<Return>", lambda e: self._attempt_login())
         
-        # Auto-focus username field
-        self.after(100, lambda: self.username_entry.focus())
-    
-    def _toggle_password_visibility(self) -> None:
-        """Toggle password field visibility."""
-        self._password_visible = not self._password_visible
-        if self._password_visible:
-            self.password_entry.configure(show="")
-            self.password_toggle_btn.configure(text="🙈")
-        else:
-            self.password_entry.configure(show="•")
-            self.password_toggle_btn.configure(text="👁️")
-    
-    def _set_loading_state(self, loading: bool) -> None:
-        """
-        Enable/disable loading state.
+        # Login button
+        login_btn = ctk.CTkButton(
+            form_card,
+            text="Login",
+            command=self._attempt_login,
+            width=280,
+            height=44,
+            corner_radius=8,
+            font=(Fonts.PRIMARY, Fonts.MD, Fonts.BOLD),
+        )
+        login_btn.grid(row=4, column=0, padx=24, pady=(0, 24))
         
-        Args:
-            loading: True to show loading state, False otherwise
-        """
-        if loading:
-            self.login_btn.configure(
-                text="Authenticating...",
-                state="disabled",
-                fg_color=Colors.TEXT_MUTED
-            )
-            self.username_entry.configure(state="disabled")
-            self.password_entry.configure(state="disabled")
-            self.password_toggle_btn.configure(state="disabled")
-        else:
-            self.login_btn.configure(
-                text="Login",
-                state="normal",
-                fg_color=Colors.PRIMARY
-            )
-            self.username_entry.configure(state="normal")
-            self.password_entry.configure(state="normal")
-            self.password_toggle_btn.configure(state="normal")
+        # Error message label (hidden by default)
+        self.error_label = ctk.CTkLabel(
+            form_card,
+            text="",
+            font=(Fonts.PRIMARY, Fonts.SM),
+            text_color=Colors.DANGER,
+        )
+        self.error_label.grid(row=5, column=0, padx=24, pady=(0, 16))
     
     def _attempt_login(self) -> None:
-        """Validate credentials and attempt login."""
-        username = self.username_entry.get().strip()
+        """Attempt to login with entered credentials."""
+        username = self.username_entry.get()
         password = self.password_entry.get()
         
-        # Validate inputs
-        if not username:
-            self._show_error("Please enter your username")
+        # Clear previous error
+        self.error_label.configure(text="")
+        
+        # Validate input
+        if not username or not password:
+            self.error_label.configure(text="Please enter both username and password")
             return
         
-        if not password:
-            self._show_error("Please enter your password")
-            return
-        
-        # Set loading state
-        self._set_loading_state(True)
-        
-        try:
-            # Initialize auth service
-            self.auth_service = AuthService(self.connection_manager)
-            
-            # Attempt login
-            session = self.auth_service.login(username, password)
-            
-            # Prepare user data for callback
-            user_data = {
-                'id': session.user_id,
-                'username': session.username,
-                'full_name': session.full_name,
-                'role': session.role,
-                'session_token': session.token,
-                'expires_at': session.expires_at.isoformat()
-            }
-            
-            logger.info(f"Login successful for user: {username}")
-            
-            # Call success callback
-            self.after(200, lambda: self.on_login_success(user_data))
-            
-        except AccountLockedError as e:
-            self._set_loading_state(False)
-            self._show_error(str(e))
-            
-        except AuthenticationError as e:
-            self._set_loading_state(False)
-            self._show_error(str(e))
-            
-        except Exception as e:
-            self._set_loading_state(False)
-            logger.exception(f"Unexpected login error: {e}")
-            self._show_error("An unexpected error occurred. Please try again.")
+        # Call login callback if provided
+        if self.on_login:
+            self.on_login(username, password)
+        else:
+            # Default behavior - just clear fields
+            self.username_entry.delete(0, "end")
+            self.password_entry.delete(0, "end")
+            self.error_label.configure(text="Login functionality not implemented yet")
     
-    def _show_error(self, message: str) -> None:
-        """
-        Display error message to user.
-        
-        Args:
-            message: Error message to display
-        """
-        # Highlight password field
-        self.password_entry.configure(border_color=Colors.DANGER)
-        self.username_entry.configure(border_color=Colors.DANGER)
-        
-        # Show message box
-        self.after(100, lambda: messagebox.showerror("Login Failed", message))
-        
-        # Reset border colors after delay
-        self.after(2000, lambda: self._reset_field_colors())
-    
-    def _reset_field_colors(self) -> None:
-        """Reset input field border colors to default."""
-        if hasattr(self, 'username_entry') and hasattr(self, 'password_entry'):
-            self.username_entry.configure(border_color=Colors.BORDER)
-            self.password_entry.configure(border_color=Colors.BORDER)
-    
-    def refresh(self) -> None:
-        """Refresh screen (called when navigating back to login)."""
-        # Clear fields
-        self.username_entry.delete(0, 'end')
-        self.password_entry.delete(0, 'end')
-        self._reset_field_colors()
-        self._set_loading_state(False)
-        self.after(100, lambda: self.username_entry.focus())
+    def focus_username(self) -> None:
+        """Focus the username entry field."""
+        self.username_entry.focus()

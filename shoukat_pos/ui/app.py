@@ -1,172 +1,158 @@
-"""
-Main Application Window for Shoukat POS.
+"""Main application window and screen router for Shoukat POS.
 
-Implements the main CTk window with screen router, frame caching,
-sidebar navigation, and responsive layout management.
+This module provides the App class (main window) and ScreenRouter
+for managing screen navigation with frame caching.
 """
+
+from typing import Dict, Type, Optional, Any
 import customtkinter as ctk
-from tkinter import messagebox
-from typing import Dict, Optional, Any, Type
-import logging
-from datetime import datetime
-
-from ui.theme import Colors, Breakpoints, ThemeManager
-from ui.screens.login_screen import LoginScreen
-from ui.screens.dashboard_screen import DashboardScreen
-
-logger = logging.getLogger(__name__)
+from ui.theme import Theme, Colors, Fonts, Breakpoints
+from ui.animations import Animation
 
 
 class ScreenRouter:
-    """
-    Screen router with frame caching for instant navigation.
+    """Screen router with frame caching for instant navigation.
     
-    Maintains a cache of instantiated screen frames and uses lift()
-    to switch between them without destroying/recreating, preserving
-    scroll position and state.
+    This router maintains instantiated screen frames in memory and uses
+    lift() to bring active screens to the front, avoiding flicker and
+    preserving scroll positions.
+    
+    Attributes:
+        container: Parent widget that holds all screens.
+        screens: Dictionary of screen name to frame instance.
+        current_screen: Name of currently visible screen.
     """
     
-    def __init__(self, parent: ctk.CTkFrame):
-        """
-        Initialize screen router.
+    def __init__(self, container: ctk.CTkFrame) -> None:
+        """Initialize the screen router.
         
         Args:
-            parent: Parent container widget (usually main app frame)
+            container: Parent widget to hold all screen frames.
         """
-        self.parent = parent
-        self.frames: Dict[str, ctk.CTkFrame] = {}
+        self.container = container
+        self.screens: Dict[str, ctk.CTkFrame] = {}
         self.current_screen: Optional[str] = None
-        self.navigation_history: list = []
+        self._history: list = []
     
-    def register_frame(self, name: str, frame: ctk.CTkFrame) -> None:
-        """
-        Register a screen frame in the cache.
+    def register(
+        self,
+        name: str,
+        screen_class: Type[ctk.CTkFrame],
+        **kwargs: Any
+    ) -> None:
+        """Register a screen class for later navigation.
         
         Args:
-            name: Unique screen identifier
-            frame: Frame instance to cache
+            name: Unique screen identifier.
+            screen_class: The screen class (not instance).
+            **kwargs: Arguments to pass when instantiating the screen.
         """
-        assert name not in self.frames, f"Screen '{name}' already registered"
-        frame.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
-        frame.lift()  # Bring to front initially
-        self.frames[name] = frame
-        logger.debug(f"Registered screen: {name}")
+        assert name not in self.screens, f"Screen '{name}' already registered"
+        
+        # Instantiate and store the screen
+        screen = screen_class(self.container, **kwargs)
+        self.screens[name] = screen
+        
+        # Position off-screen initially
+        screen.place(x=0, y=0, relwidth=1, relheight=1)
+        screen.lower()
     
     def navigate_to(
-        self, 
-        name: str, 
-        **kwargs: Any
-    ) -> Optional[ctk.CTkFrame]:
-        """
-        Navigate to a screen by name.
+        self,
+        name: str,
+        push_history: bool = True,
+        animate: bool = True
+    ) -> None:
+        """Navigate to a registered screen.
         
         Args:
-            name: Screen identifier to navigate to
-            **kwargs: Data to pass to the screen (if it supports refresh)
-            
-        Returns:
-            The navigated-to frame, or None if not found
+            name: Screen identifier to navigate to.
+            push_history: Whether to add current screen to history.
+            animate: Whether to animate the transition.
         """
-        if name not in self.frames:
-            logger.error(f"Screen not found: {name}")
-            return None
+        assert name in self.screens, f"Screen '{name}' not registered"
         
-        # Track history for back navigation
-        if self.current_screen and self.current_screen != name:
-            self.navigation_history.append(self.current_screen)
-            if len(self.navigation_history) > 10:
-                self.navigation_history.pop(0)
+        if self.current_screen == name:
+            return  # Already on this screen
         
-        # Hide current screen
-        if self.current_screen and self.current_screen in self.frames:
-            self.frames[self.current_screen].lower()
+        # Push current screen to history
+        if push_history and self.current_screen:
+            self._history.append(self.current_screen)
         
-        # Show target screen
-        target_frame = self.frames[name]
-        target_frame.lift()
+        # Get target screen
+        target_screen = self.screens[name]
         
-        # Call refresh method if exists and kwargs provided
-        if kwargs and hasattr(target_frame, 'refresh'):
-            try:
-                target_frame.refresh(**kwargs)
-            except Exception as e:
-                logger.error(f"Error refreshing screen {name}: {e}")
+        # Bring to front
+        target_screen.lift()
+        
+        # Animate if requested
+        if animate and self.current_screen:
+            current_frame = self.screens[self.current_screen]
+            Animation.fade_in(target_frame, duration_ms=150)
         
         self.current_screen = name
-        logger.debug(f"Navigated to: {name}")
-        return target_frame
     
-    def go_back(self) -> Optional[str]:
-        """
-        Navigate to previous screen in history.
+    def go_back(self) -> None:
+        """Navigate back to previous screen."""
+        if not self._history:
+            return
         
-        Returns:
-            Previous screen name, or None if no history
-        """
-        if not self.navigation_history:
-            return None
-        
-        previous = self.navigation_history.pop()
-        self.navigate_to(previous)
-        return previous
+        previous = self._history.pop()
+        self.navigate_to(previous, push_history=False)
     
     def clear_history(self) -> None:
         """Clear navigation history."""
-        self.navigation_history.clear()
+        self._history.clear()
 
 
 class App(ctk.CTk):
-    """
-    Main application window for Shoukat POS.
+    """Main application window for Shoukat POS.
     
-    Features:
-    - Responsive layout with adaptive sidebar
-    - Screen router with frame caching
-    - Global session management
-    - Graceful shutdown handling
+    This class sets up the main window, sidebar navigation,
+    and screen routing infrastructure.
+    
+    Attributes:
+        router: ScreenRouter instance for navigation.
+        sidebar: Navigation sidebar frame.
+        content_area: Main content area frame.
     """
     
-    def __init__(self):
-        """Initialize main application window."""
+    def __init__(self) -> None:
+        """Initialize the main application."""
         super().__init__()
         
-        # Configure root window
-        self.title("Shoukat POS - Garment Retail Management")
-        self.geometry("1400x900")
-        self.minsize(1024, 768)
-        
         # Apply theme
-        ThemeManager.apply_theme()
+        self.theme = Theme()
+        self.theme.apply()
         
-        # State
-        self.current_user: Optional[Dict[str, Any]] = None
-        self.sidebar_collapsed = False
+        # Window configuration
+        self.title("Shoukat Sons Garments - POS")
+        self.geometry("1440x900")
+        self.minsize(1024, 768)
         
         # Configure grid
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
         
-        # Create components
-        self._create_sidebar()
-        self._create_main_area()
-        self._create_router()
+        # Current breakpoint
+        self.current_breakpoint = "standard"
         
-        # Bind events
-        self.bind("<Configure>", self._on_window_resize)
-        self.protocol("WM_DELETE_WINDOW", self._on_close)
+        # Build UI
+        self._build_sidebar()
+        self._build_content_area()
         
-        # Show login screen first
-        self._show_login()
+        # Initialize router
+        self.router = ScreenRouter(self.content_area)
         
-        logger.info("Application initialized")
+        # Bind resize event for responsive layout
+        self.bind("<Configure>", self._on_resize)
     
-    def _create_sidebar(self) -> None:
-        """Create left sidebar navigation."""
+    def _build_sidebar(self) -> None:
+        """Build the navigation sidebar."""
         self.sidebar = ctk.CTkFrame(
             self,
             width=220,
-            corner_radius=0,
-            fg_color=Colors.PRIMARY
+            fg_color=Colors.PRIMARY,
         )
         self.sidebar.grid(row=0, column=0, sticky="ns", rowspan=1)
         self.sidebar.grid_propagate(False)
@@ -175,195 +161,160 @@ class App(ctk.CTk):
         logo_frame = ctk.CTkFrame(
             self.sidebar,
             fg_color="transparent",
-            height=100
+            height=80,
         )
-        logo_frame.grid(row=0, column=0, padx=20, pady=(20, 10), sticky="ew")
-        logo_frame.grid_propagate(False)
+        logo_frame.pack(fill="x", padx=16, pady=(16, 8))
+        logo_frame.pack_propagate(False)
         
         logo_label = ctk.CTkLabel(
             logo_frame,
-            text="SHOUKAT SONS",
-            font=ctk.CTkFont(size=16, weight="bold"),
-            text_color=Colors.CARD
+            text="🏪\nShoukat Sons",
+            text_color=Colors.CARD,
+            font=(Fonts.PRIMARY, 16, Fonts.BOLD),
+            justify="left",
         )
-        logo_label.pack(anchor="w")
-        
-        subtitle = ctk.CTkLabel(
-            logo_frame,
-            text="Garments POS",
-            font=ctk.CTkFont(size=11),
-            text_color=Colors.TEXT_MUTED
-        )
-        subtitle.pack(anchor="w")
+        logo_label.place(rely=0.5, anchor="center")
         
         # Navigation buttons
-        nav_buttons = [
-            ("Dashboard", "dashboard"),
-            ("New Sale", "pos"),
-            ("Products", "products"),
-            ("Customers", "customers"),
-            ("Reports", "reports"),
-            ("Settings", "settings"),
+        nav_items = [
+            ("📊", "Dashboard", "dashboard"),
+            ("🛍️", "New Sale", "new_sale"),
+            ("👕", "Products", "products"),
+            ("👥", "Customers", "customers"),
+            ("📈", "Reports", "reports"),
+            ("⚙️", "Settings", "settings"),
         ]
         
-        for i, (text, screen_name) in enumerate(nav_buttons):
-            btn = ctk.CTkButton(
-                self.sidebar,
-                text=text,
-                command=lambda s=screen_name: self._navigate(s),
-                fg_color="transparent",
-                hover_color=Colors.PRIMARY_LIGHT,
-                anchor="w",
-                padx=20,
-                height=45,
-                font=ctk.CTkFont(size=14)
-            )
-            btn.grid(row=i+1, column=0, sticky="ew", padx=0, pady=2)
+        for icon, text, screen_name in nav_items:
+            btn = self._create_nav_button(icon, text, screen_name)
+            btn.pack(fill="x", padx=8, pady=2)
         
-        # User info at bottom
-        self.user_info_frame = ctk.CTkFrame(
+        # Bottom section (user info)
+        bottom_frame = ctk.CTkFrame(
             self.sidebar,
-            fg_color="transparent"
+            fg_color="transparent",
         )
-        self.user_info_frame.grid(row=8, column=0, sticky="ew", padx=20, pady=20)
+        bottom_frame.pack(side="bottom", fill="x", padx=16, pady=16)
         
-        self.user_label = ctk.CTkLabel(
-            self.user_info_frame,
-            text="",
-            font=ctk.CTkFont(size=12),
-            text_color=Colors.TEXT_MUTED
+        user_label = ctk.CTkLabel(
+            bottom_frame,
+            text="👤 Admin",
+            text_color=Colors.CARD,
+            font=(Fonts.PRIMARY, Fonts.SM),
+            anchor="w",
         )
-        self.user_label.pack(anchor="w")
+        user_label.pack(fill="x")
         
-        self.logout_btn = ctk.CTkButton(
-            self.user_info_frame,
+        logout_btn = ctk.CTkButton(
+            bottom_frame,
             text="Logout",
-            command=self._logout,
-            fg_color=Colors.DANGER,
-            hover_color=Colors.DANGER_LIGHT,
-            height=35,
-            font=ctk.CTkFont(size=12)
+            width=160,
+            height=32,
+            fg_color="transparent",
+            border_width=1,
+            border_color=Colors.CARD,
+            text_color=Colors.CARD,
+            hover_color=Colors.PRIMARY_LIGHT,
+            font=(Fonts.PRIMARY, Fonts.SM),
         )
-        self.logout_btn.pack(fill="x", pady=(5, 0))
+        logout_btn.pack(fill="x", pady=(8, 0))
     
-    def _create_main_area(self) -> None:
-        """Create main content area."""
-        self.main_area = ctk.CTkFrame(
+    def _create_nav_button(
+        self,
+        icon: str,
+        text: str,
+        screen_name: str
+    ) -> ctk.CTkButton:
+        """Create a navigation button.
+        
+        Args:
+            icon: Icon emoji.
+            text: Button text.
+            screen_name: Target screen name.
+            
+        Returns:
+            Created button instance.
+        """
+        def on_click() -> None:
+            # Update button states
+            for child in self.sidebar.winfo_children():
+                if isinstance(child, ctk.CTkButton):
+                    child.configure(fg_color="transparent")
+            
+            # Navigate
+            self.router.navigate_to(screen_name)
+        
+        btn = ctk.CTkButton(
+            self.sidebar,
+            text=f"{icon}  {text}",
+            command=on_click,
+            anchor="w",
+            height=44,
+            corner_radius=8,
+            fg_color="transparent",
+            hover_color=Colors.PRIMARY_LIGHT,
+            font=(Fonts.PRIMARY, Fonts.MD),
+        )
+        
+        # Set active state for first button (Dashboard)
+        if screen_name == "dashboard":
+            btn.configure(fg_color=Colors.PRIMARY_LIGHT)
+        
+        return btn
+    
+    def _build_content_area(self) -> None:
+        """Build the main content area."""
+        self.content_area = ctk.CTkFrame(
             self,
-            corner_radius=0,
-            fg_color=Colors.BACKGROUND
+            fg_color=Colors.BACKGROUND,
         )
-        self.main_area.grid(row=0, column=1, sticky="nsew")
-        self.main_area.grid_columnconfigure(0, weight=1)
-        self.main_area.grid_rowconfigure(0, weight=1)
+        self.content_area.grid(row=0, column=1, sticky="nsew")
     
-    def _create_router(self) -> None:
-        """Initialize screen router and register screens."""
-        self.router = ScreenRouter(self.main_area)
-        
-        # Register initial screens (more will be added as we build them)
-        # Dashboard will be created after login
-        logger.debug("Screen router initialized")
-    
-    def _show_login(self) -> None:
-        """Display login screen."""
-        # Hide sidebar during login
-        self.sidebar.grid_remove()
-        
-        # Create login screen
-        self.login_screen = LoginScreen(self.main_area, on_login_success=self._on_login_success)
-        self.router.register_frame("login", self.login_screen)
-        self.router.navigate_to("login")
-    
-    def _on_login_success(self, user_data: Dict[str, Any]) -> None:
-        """
-        Handle successful login.
+    def _on_resize(self, event: Any) -> None:
+        """Handle window resize for responsive layout.
         
         Args:
-            user_data: User information dictionary
+            event: Configure event.
         """
-        self.current_user = user_data
-        logger.info(f"User logged in: {user_data['username']}")
-        
-        # Show sidebar
-        self.sidebar.grid()
-        
-        # Update user info
-        self.user_label.configure(
-            text=f"{user_data['full_name']}\n({user_data['role'].title()})"
-        )
-        
-        # Create and show dashboard
-        self.dashboard_screen = DashboardScreen(self.main_area, user_data=user_data)
-        self.router.register_frame("dashboard", self.dashboard_screen)
-        self.router.navigate_to("dashboard")
-        
-        # Register placeholder screens (to be implemented)
-        self._register_placeholder_screens()
-    
-    def _register_placeholder_screens(self) -> None:
-        """Register placeholder frames for unimplemented screens."""
-        placeholders = ["pos", "products", "customers", "reports", "settings"]
-        
-        for screen_name in placeholders:
-            placeholder = ctk.CTkFrame(self.main_area, fg_color=Colors.BACKGROUND)
-            label = ctk.CTkLabel(
-                placeholder,
-                text=f"{screen_name.upper()} Screen\n(Coming Soon)",
-                font=ctk.CTkFont(size=24, weight="bold"),
-                text_color=Colors.TEXT_SECONDARY
-            )
-            label.place(relx=0.5, rely=0.5, anchor="center")
-            self.router.register_frame(screen_name, placeholder)
-    
-    def _navigate(self, screen_name: str) -> None:
-        """
-        Navigate to a screen.
-        
-        Args:
-            screen_name: Target screen identifier
-        """
-        if not self.current_user:
-            logger.warning("Navigation attempted without login")
+        if event.widget != self:
             return
         
+        width = self.winfo_width()
+        new_breakpoint = Breakpoints.get_breakpoint(width)
+        
+        if new_breakpoint != self.current_breakpoint:
+            self.current_breakpoint = new_breakpoint
+            config = self.theme.get_responsive_config(width)
+            
+            # Adjust sidebar width
+            new_width = config["sidebar_width"]
+            self.sidebar.configure(width=new_width)
+            
+            # TODO: Adjust other layout elements based on breakpoint
+    
+    def register_screen(
+        self,
+        name: str,
+        screen_class: Type[ctk.CTkFrame],
+        **kwargs: Any
+    ) -> None:
+        """Register a screen for navigation.
+        
+        Args:
+            name: Unique screen identifier.
+            screen_class: The screen class to instantiate.
+            **kwargs: Arguments to pass to screen constructor.
+        """
+        self.router.register(name, screen_class, **kwargs)
+    
+    def navigate_to(self, screen_name: str) -> None:
+        """Navigate to a screen.
+        
+        Args:
+            screen_name: Screen identifier.
+        """
         self.router.navigate_to(screen_name)
     
-    def _on_window_resize(self, event: Any) -> None:
-        """Handle window resize for responsive layout."""
-        if event.widget == self and event.width:
-            config = Breakpoints.get_config(event.width)
-            
-            # Collapse sidebar in compact mode
-            if config.sidebar_collapsed and not self.sidebar_collapsed:
-                self.sidebar.grid_remove()
-                self.sidebar_collapsed = True
-            elif not config.sidebar_collapsed and self.sidebar_collapsed:
-                self.sidebar.grid()
-                self.sidebar_collapsed = False
-    
-    def _logout(self) -> None:
-        """Handle logout action."""
-        if messagebox.askyesno("Confirm Logout", "Are you sure you want to logout?"):
-            logger.info("User logged out")
-            self.current_user = None
-            
-            # Clear router and show login
-            self.sidebar.grid_remove()
-            self._show_login()
-    
-    def _on_close(self) -> None:
-        """Handle application close event."""
-        if messagebox.askyesno("Exit", "Are you sure you want to exit Shoukat POS?"):
-            logger.info("Application closing")
-            self.destroy()
-
-
-def run_app() -> None:
-    """Start the application."""
-    app = App()
-    app.mainloop()
-
-
-if __name__ == "__main__":
-    run_app()
+    def run(self) -> None:
+        """Start the application main loop."""
+        self.mainloop()
