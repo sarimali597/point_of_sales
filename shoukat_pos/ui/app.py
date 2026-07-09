@@ -141,8 +141,9 @@ class App(ctk.CTk):
         self._build_sidebar()
         self._build_content_area()
         
-        # Initialize router
+        # Initialize router BEFORE registering screens
         self.router = ScreenRouter(self.content_area)
+        self._register_screens()
         
         # Bind resize event for responsive layout
         self.bind("<Configure>", self._on_resize)
@@ -269,9 +270,6 @@ class App(ctk.CTk):
             fg_color=Colors.BACKGROUND,
         )
         self.content_area.grid(row=0, column=1, sticky="nsew")
-        
-        # Register all screens
-        self._register_screens()
     
     def _register_screens(self) -> None:
         """Register all application screens with the router."""
