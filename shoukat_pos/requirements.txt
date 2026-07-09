@@ -1,0 +1,44 @@
+# Shoukat Sons Garments POS - Core Dependencies
+# Pinned versions for reproducible builds
+
+# GUI Framework
+customtkinter==5.2.1
+Pillow==10.2.0
+
+# Database
+# SQLite is built-in, but we need SQLAlchemy for migrations
+SQLAlchemy==2.0.25
+alembic==1.13.1
+
+# Password hashing & security
+bcrypt==4.1.2
+cryptography==42.0.0
+
+# PDF Generation
+fpdf2==2.7.7
+
+# Charts for reports
+matplotlib==3.8.2
+
+# Barcode generation
+python-barcode==0.15.1
+
+# Receipt printing (ESC/POS)
+python-escpos[usb]==3.3.0
+
+# Testing
+pytest==7.4.4
+pytest-cov==4.1.0
+
+# Code quality
+mypy==1.8.0
+ruff==0.1.13
+
+# Type hints backport for older Python
+typing_extensions==4.9.0
+
+# Windows printer support (optional, only on Windows)
+pywin32==306; sys_platform == 'win32'
+
+# USB access for printers
+pyusb==1.2.1
