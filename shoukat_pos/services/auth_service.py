@@ -232,7 +232,7 @@ class AuthService:
             ValueError: If username already exists or validation fails
         """
         # Validate inputs
-        is_valid, error_msg = validate_text(username, min_len=3, max_len=50, field_name="Username")
+        is_valid, error_msg = validate_text(username, min_length=3, max_length=50, field_name="Username")
         if not is_valid:
             raise ValueError(error_msg)
         
