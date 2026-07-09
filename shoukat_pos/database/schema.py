@@ -358,6 +358,115 @@ END;
 
 
 # =============================================================================
+# AUDIT LOG TRIGGERS (Tamper-Evident Trail)
+# =============================================================================
+
+CREATE_AUDIT_TRIGGERS = """
+-- Audit trigger for variants INSERT
+CREATE TRIGGER IF NOT EXISTS audit_variants_insert
+AFTER INSERT ON variants
+BEGIN
+    INSERT INTO audit_log (table_name, record_id, action, old_values, new_values, hmac_hash)
+    VALUES ('variants', NEW.id, 'INSERT', NULL, 
+            json_object('style_id', NEW.style_id, 'size', NEW.size, 'color', NEW.color, 
+                       'barcode', NEW.barcode, 'quantity', NEW.quantity),
+            '');
+END;
+
+-- Audit trigger for variants UPDATE
+CREATE TRIGGER IF NOT EXISTS audit_variants_update
+AFTER UPDATE ON variants
+BEGIN
+    INSERT INTO audit_log (table_name, record_id, action, old_values, new_values, hmac_hash)
+    VALUES ('variants', NEW.id, 'UPDATE', 
+            json_object('quantity', OLD.quantity, 'reorder_point', OLD.reorder_point),
+            json_object('quantity', NEW.quantity, 'reorder_point', NEW.reorder_point),
+            '');
+END;
+
+-- Audit trigger for variants DELETE
+CREATE TRIGGER IF NOT EXISTS audit_variants_delete
+AFTER DELETE ON variants
+BEGIN
+    INSERT INTO audit_log (table_name, record_id, action, old_values, new_values, hmac_hash)
+    VALUES ('variants', OLD.id, 'DELETE', 
+            json_object('style_id', OLD.style_id, 'size', OLD.size, 'color', OLD.color, 
+                       'barcode', OLD.barcode, 'quantity', OLD.quantity),
+            NULL,
+            '');
+END;
+
+-- Audit trigger for sales INSERT
+CREATE TRIGGER IF NOT EXISTS audit_sales_insert
+AFTER INSERT ON sales
+BEGIN
+    INSERT INTO audit_log (table_name, record_id, action, old_values, new_values, hmac_hash)
+    VALUES ('sales', NEW.id, 'INSERT', NULL,
+            json_object('invoice_number', NEW.invoice_number, 'customer_id', NEW.customer_id,
+                       'grand_total', NEW.grand_total, 'payment_type', NEW.payment_type,
+                       'status', NEW.status, 'user_id', NEW.user_id),
+            '');
+END;
+
+-- Audit trigger for sales UPDATE (especially status changes like voiding)
+CREATE TRIGGER IF NOT EXISTS audit_sales_update
+AFTER UPDATE ON sales
+BEGIN
+    INSERT INTO audit_log (table_name, record_id, action, old_values, new_values, hmac_hash)
+    VALUES ('sales', NEW.id, 'UPDATE',
+            json_object('status', OLD.status, 'due_amount', OLD.due_amount),
+            json_object('status', NEW.status, 'due_amount', NEW.due_amount),
+            '');
+END;
+
+-- Audit trigger for sales DELETE (voided sales)
+CREATE TRIGGER IF NOT EXISTS audit_sales_delete
+AFTER DELETE ON sales
+BEGIN
+    INSERT INTO audit_log (table_name, record_id, action, old_values, new_values, hmac_hash)
+    VALUES ('sales', OLD.id, 'DELETE',
+            json_object('invoice_number', OLD.invoice_number, 'grand_total', OLD.grand_total,
+                       'status', OLD.status),
+            NULL,
+            '');
+END;
+
+-- Audit trigger for customers UPDATE (credit changes)
+CREATE TRIGGER IF NOT EXISTS audit_customers_update
+AFTER UPDATE ON customers
+BEGIN
+    INSERT INTO audit_log (table_name, record_id, action, old_values, new_values, hmac_hash)
+    VALUES ('customers', NEW.id, 'UPDATE',
+            json_object('total_due', OLD.total_due, 'total_purchases', OLD.total_purchases),
+            json_object('total_due', NEW.total_due, 'total_purchases', NEW.total_purchases),
+            '');
+END;
+
+-- Audit trigger for settings UPDATE (configuration changes)
+CREATE TRIGGER IF NOT EXISTS audit_settings_update
+AFTER UPDATE ON settings
+BEGIN
+    INSERT INTO audit_log (table_name, record_id, action, old_values, new_values, hmac_hash)
+    VALUES ('settings', NEW.id, 'UPDATE',
+            json_object('key', OLD.key, 'value', OLD.value),
+            json_object('key', NEW.key, 'value', NEW.value),
+            '');
+END;
+
+-- Audit trigger for users UPDATE (password changes, role changes)
+CREATE TRIGGER IF NOT EXISTS audit_users_update
+AFTER UPDATE ON users
+BEGIN
+    INSERT INTO audit_log (table_name, record_id, action, old_values, new_values, hmac_hash)
+    VALUES ('users', NEW.id, 'UPDATE',
+            json_object('role', OLD.role, 'is_active', OLD.is_active),
+            json_object('role', NEW.role, 'is_active', NEW.is_active),
+            '');
+END;
+"""
+
+
+# =============================================================================
 # SEED DATA
 # =============================================================================
 
@@ -437,6 +546,7 @@ def create_all_tables(conn: sqlite3.Connection) -> None:
     
     # Create triggers
     conn.executescript(CREATE_UPDATED_AT_TRIGGERS)
+    conn.executescript(CREATE_AUDIT_TRIGGERS)
     
     logger.info(f"Created {len(tables)} tables, indexes, and triggers")
 
