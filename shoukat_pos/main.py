@@ -75,6 +75,7 @@ def main() -> None:
         connection_manager = ConnectionManager.get_instance()
         connection_manager.close_all()
         logger.info("Application shutdown complete")
+        
 
 
 if __name__ == "__main__":
