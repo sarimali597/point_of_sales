@@ -306,7 +306,7 @@ class AuthService:
             cursor.execute(
                 """
                 SELECT id, username, password_hash, full_name, role, is_active, 
-                       created_at, last_login
+                       created_at, last_login_at
                 FROM users
                 WHERE username = ?
                 """,
@@ -325,7 +325,7 @@ class AuthService:
                 role=row['role'],
                 is_active=bool(row['is_active']),
                 created_at=row['created_at'],
-                last_login=row['last_login']
+                last_login_at=row['last_login_at']
             )
         finally:
             if close_conn:
