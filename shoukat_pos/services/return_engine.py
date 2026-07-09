@@ -20,7 +20,7 @@ import logging
 
 from database.connection import ConnectionManager
 from utils.audit_logger import AuditLogger
-from utils.formatters import format_rupees
+from utils.formatters import format_currency as format_rupees
 
 logger = logging.getLogger(__name__)
 
@@ -859,9 +859,6 @@ class ReturnEngine:
             result["new_items"] = [dict(item) for item in new_items]
             
             return result
-            
-        finally:
-            conn.close()
 
 
 def create_return_with_transaction(

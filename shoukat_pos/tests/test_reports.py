@@ -22,14 +22,17 @@ from services.report_engine import (
     ReportEngine, MatrixCell, TrendPoint, 
     InventoryItem, EmployeePerformance
 )
-from utils.db_manager import get_db_connection
+from database.connection import get_connection_manager
 
 
 @pytest.fixture
 def test_db(tmp_path) -> str:
     """Create a fresh test database with sample data."""
     db_path = str(tmp_path / "test_reports.db")
-    conn = get_db_connection(db_path)
+    
+    # Create tables using direct sqlite3 connection for setup
+    import sqlite3
+    conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     
     # Create tables (simplified schema for testing)
@@ -162,6 +165,11 @@ def test_db(tmp_path) -> str:
     
     conn.commit()
     conn.close()
+    
+    # Reset ConnectionManager singleton for fresh instance
+    from database.connection import ConnectionManager
+    ConnectionManager._instance = None
+    
     return db_path
 
 
@@ -532,7 +540,9 @@ class TestEdgeCases:
     def test_empty_database(self, tmp_path):
         """Test reports on empty database."""
         db_path = str(tmp_path / "empty.db")
-        conn = get_db_connection(db_path)
+        manager = get_connection_manager()
+        manager.db_path = db_path
+        conn = manager.get_write_connection()
         conn.close()
         
         engine = ReportEngine(db_path)
