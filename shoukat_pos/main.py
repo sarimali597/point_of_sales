@@ -28,11 +28,14 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def initialize_application() -> None:
+def initialize_application() -> ConnectionManager:
     """
     Initialize the application: create directories, database, and seed data.
     
     This function runs once on first launch to set up the application environment.
+    
+    Returns:
+        ConnectionManager: Initialized database connection manager instance.
     """
     logger.info(f"Initializing {APP_NAME} v{APP_VERSION}")
     
@@ -46,6 +49,7 @@ def initialize_application() -> None:
     connection_manager.initialize_database()
     
     logger.info("Application initialization complete")
+    return connection_manager
 
 
 def main() -> None:
@@ -55,27 +59,25 @@ def main() -> None:
     Initializes the application and starts the CustomTkinter event loop.
     """
     # Initialize application (database, directories, etc.)
-    initialize_application()
+    connection_manager = initialize_application()
     
     # Configure CustomTkinter appearance
     ctk.set_appearance_mode("light")  # 'light' or 'dark'
     ctk.set_default_color_theme("blue")  # 'blue', 'green', 'dark-blue'
     
-    # Create main application window
-    from ui.app import App
-    app = App()
+    # Create login application window (shows login first, then main app on success)
+    from ui.app import LoginApp
+    login_app = LoginApp(connection_manager)
     
     # Start the event loop
     try:
-        app.mainloop()
+        login_app.mainloop()
     except KeyboardInterrupt:
         logger.info("Application interrupted by user")
     finally:
         # Cleanup: close database connections
-        connection_manager = ConnectionManager.get_instance()
         connection_manager.close_all()
         logger.info("Application shutdown complete")
-        
 
 
 if __name__ == "__main__":
