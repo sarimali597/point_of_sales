@@ -238,6 +238,7 @@ class StatCard(ctk.CTkFrame):
         change: Optional[float] = None,
         icon: Optional[str] = None,
         command: Optional[Callable] = None,
+        color: Optional[str] = None,
         **kwargs
     ):
         super().__init__(master, **kwargs)
@@ -247,6 +248,7 @@ class StatCard(ctk.CTkFrame):
         self.change = change
         self.icon = icon
         self.command = command
+        self.color = color or "PRIMARY"
         
         self._create_widgets()
     
@@ -272,7 +274,7 @@ class StatCard(ctk.CTkFrame):
             content,
             text=self.value,
             font=ctk.CTkFont(size=28, weight="bold"),
-            text_color=self._get_color("PRIMARY")
+            text_color=self._get_color(self.color)
         )
         value_label.pack(anchor="w", pady=(5, 0))
         
@@ -300,7 +302,10 @@ class StatCard(ctk.CTkFrame):
         """Get color from theme."""
         colors = {
             "PRIMARY": "#1A237E",
+            "SECONDARY": "#0D47A1",
+            "ACCENT": "#00BCD4",
             "SUCCESS": "#2E7D32",
+            "WARNING": "#F57C00",
             "DANGER": "#C62828",
             "CARD": "#FFFFFF",
             "TEXT_PRIMARY": "#263238"
