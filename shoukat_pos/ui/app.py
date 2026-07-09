@@ -269,6 +269,29 @@ class App(ctk.CTk):
             fg_color=Colors.BACKGROUND,
         )
         self.content_area.grid(row=0, column=1, sticky="nsew")
+        
+        # Register all screens
+        self._register_screens()
+    
+    def _register_screens(self) -> None:
+        """Register all application screens with the router."""
+        from ui.screens.dashboard_screen import DashboardScreen
+        from ui.screens.sales.new_sale import NewSaleScreen
+        from ui.screens.products.product_list import ProductListScreen
+        from ui.screens.customers.customer_manager import CustomerManagerScreen
+        from ui.screens.reports.sales_report import SalesReportScreen
+        from ui.screens.settings.general_settings import GeneralSettingsScreen
+        
+        # Register screens
+        self.router.register("dashboard", DashboardScreen)
+        self.router.register("new_sale", NewSaleScreen)
+        self.router.register("products", ProductListScreen)
+        self.router.register("customers", CustomerManagerScreen)
+        self.router.register("reports", SalesReportScreen)
+        self.router.register("settings", GeneralSettingsScreen)
+        
+        # Navigate to dashboard by default
+        self.router.navigate_to("dashboard", push_history=False, animate=False)
     
     def _on_resize(self, event: Any) -> None:
         """Handle window resize for responsive layout.
