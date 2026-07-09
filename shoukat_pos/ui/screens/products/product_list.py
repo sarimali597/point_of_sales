@@ -1,4 +1,4 @@
-"""Product list screen with variant grid view."""
+"""Product List screen with variant grid view."""
 
 from typing import Any
 import customtkinter as ctk
@@ -6,7 +6,7 @@ from ui.theme import Colors, Fonts
 
 
 class ProductListScreen(ctk.CTkFrame):
-    """Product list screen with search, filters, and variant grid."""
+    """Product List screen displaying products with variant grid."""
     
     def __init__(self, parent: ctk.CTkFrame, *args: Any, **kwargs: Any) -> None:
         """Initialize the product list screen.
@@ -19,19 +19,24 @@ class ProductListScreen(ctk.CTkFrame):
         super().__init__(parent, fg_color=Colors.BACKGROUND, *args, **kwargs)
         
         # Title
-        title_label = ctk.CTkLabel(
+        title = ctk.CTkLabel(
             self,
             text="Products",
             font=(Fonts.PRIMARY, Fonts.XL, Fonts.BOLD),
             text_color=Colors.TEXT_PRIMARY,
         )
-        title_label.pack(anchor="w", padx=24, pady=(24, 16))
+        title.pack(anchor="w", padx=24, pady=24)
         
         # Placeholder message
         placeholder = ctk.CTkLabel(
             self,
-            text="Product list functionality coming soon...",
+            text="👕 Products Screen\n\nThis screen will include:\n" +
+                 "• Product search\n" +
+                 "• Category filters\n" +
+                 "• Variant grid view\n" +
+                 "• Stock status indicators\n" +
+                 "• Add/Edit/Delete actions",
             font=(Fonts.PRIMARY, Fonts.MD),
             text_color=Colors.TEXT_SECONDARY,
         )
-        placeholder.pack(pady=100)
+        placeholder.pack(expand=True)
