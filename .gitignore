@@ -1,1 +1,38 @@
-Nothing should be ignored since only Python source files (.py) were added.
+```gitignore
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Dependencies
+.venv/
+venv/
+env/
+requirements.txt.bak
+
+# Logs and temp files
+*.log
+*.tmp
+*.swp
+
+# Environment
+.env
+.env.local
+*.env.*
+
+# Coverage
+.coverage
+coverage/
+htmlcov/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+```
