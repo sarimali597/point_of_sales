@@ -1,15 +1,13 @@
 """Main application window and screen router for Shoukat POS.
 
-This module provides the App class (main window), LoginApp class (authentication),
-and ScreenRouter for managing screen navigation with frame caching.
+This module provides the App class (main window) and ScreenRouter
+for managing screen navigation with frame caching.
 """
 
 from typing import Dict, Type, Optional, Any
 import customtkinter as ctk
 from ui.theme import Theme, Colors, Fonts, Breakpoints
 from ui.animations import Animation
-from services.auth_service import AuthService
-from database.connection import ConnectionManager
 
 
 class ScreenRouter:
@@ -90,7 +88,7 @@ class ScreenRouter:
         # Animate if requested
         if animate and self.current_screen:
             current_frame = self.screens[self.current_screen]
-            Animation.fade_in(current_frame, duration_ms=150)
+            Animation.fade_in(target_frame, duration_ms=150)
         
         self.current_screen = name
     
@@ -107,187 +105,6 @@ class ScreenRouter:
         self._history.clear()
 
 
-class LoginApp(ctk.CTk):
-    """Login application window for Shoukat POS.
-    
-    This class provides the authentication screen before accessing the main POS.
-    
-    Attributes:
-        auth_service: AuthService instance for authentication.
-        connection_manager: Database connection manager.
-    """
-    
-    def __init__(self, connection_manager: ConnectionManager) -> None:
-        """Initialize the login application.
-        
-        Args:
-            connection_manager: Database connection manager instance.
-        """
-        super().__init__()
-        
-        self.connection_manager = connection_manager
-        self.auth_service = AuthService(connection_manager)
-        
-        # Apply theme
-        self.theme = Theme()
-        self.theme.apply()
-        
-        # Window configuration
-        self.title("Shoukat POS - Login")
-        self.geometry("400x500")
-        self.resizable(False, False)
-        
-        # Center window
-        self._center_window()
-        
-        # Build UI
-        self._build_login_ui()
-    
-    def _center_window(self) -> None:
-        """Center the window on screen."""
-        self.update_idletasks()
-        width = self.winfo_width()
-        height = self.winfo_height()
-        x = (self.winfo_screenwidth() // 2) - (width // 2)
-        y = (self.winfo_screenheight() // 2) - (height // 2)
-        self.geometry(f'{width}x{height}+{x}+{y}')
-    
-    def _build_login_ui(self) -> None:
-        """Build the login user interface."""
-        # Main container
-        main_frame = ctk.CTkFrame(self, fg_color="transparent")
-        main_frame.pack(fill="both", expand=True, padx=40, pady=40)
-        
-        # Logo and title
-        logo_label = ctk.CTkLabel(
-            main_frame,
-            text="🏪",
-            font=(Fonts.PRIMARY, 48),
-        )
-        logo_label.pack(pady=(20, 10))
-        
-        title_label = ctk.CTkLabel(
-            main_frame,
-            text="Shoukat Sons Garments",
-            font=(Fonts.PRIMARY, 20, Fonts.BOLD),
-            text_color=Colors.PRIMARY,
-        )
-        title_label.pack(pady=(0, 5))
-        
-        subtitle_label = ctk.CTkLabel(
-            main_frame,
-            text="Point of Sale System",
-            font=(Fonts.PRIMARY, 14),
-            text_color=Colors.TEXT_SECONDARY,
-        )
-        subtitle_label.pack(pady=(0, 30))
-        
-        # Username field
-        username_label = ctk.CTkLabel(
-            main_frame,
-            text="Username",
-            font=(Fonts.PRIMARY, Fonts.MD),
-            anchor="w",
-        )
-        username_label.pack(fill="x", pady=(0, 8))
-        
-        self.username_entry = ctk.CTkEntry(
-            main_frame,
-            placeholder_text="Enter username",
-            height=44,
-            corner_radius=8,
-            font=(Fonts.PRIMARY, Fonts.MD),
-        )
-        self.username_entry.pack(fill="x", pady=(0, 20))
-        self.username_entry.bind("<Return>", lambda e: self._attempt_login())
-        
-        # Password field
-        password_label = ctk.CTkLabel(
-            main_frame,
-            text="Password",
-            font=(Fonts.PRIMARY, Fonts.MD),
-            anchor="w",
-        )
-        password_label.pack(fill="x", pady=(0, 8))
-        
-        self.password_entry = ctk.CTkEntry(
-            main_frame,
-            placeholder_text="Enter password",
-            show="•",
-            height=44,
-            corner_radius=8,
-            font=(Fonts.PRIMARY, Fonts.MD),
-        )
-        self.password_entry.pack(fill="x", pady=(0, 20))
-        self.password_entry.bind("<Return>", lambda e: self._attempt_login())
-        
-        # Error message label
-        self.error_label = ctk.CTkLabel(
-            main_frame,
-            text="",
-            font=(Fonts.PRIMARY, Fonts.SM),
-            text_color=Colors.DANGER,
-            justify="center",
-        )
-        self.error_label.pack(pady=(0, 20))
-        
-        # Login button
-        login_btn = ctk.CTkButton(
-            main_frame,
-            text="Login",
-            command=self._attempt_login,
-            height=44,
-            corner_radius=8,
-            font=(Fonts.PRIMARY, Fonts.MD, Fonts.BOLD),
-            fg_color=Colors.PRIMARY,
-            hover_color=Colors.PRIMARY_DARK,
-        )
-        login_btn.pack(fill="x", pady=(0, 10))
-        
-        # Default credentials hint
-        hint_label = ctk.CTkLabel(
-            main_frame,
-            text="Default: admin / admin123",
-            font=(Fonts.PRIMARY, Fonts.XS),
-            text_color=Colors.TEXT_SECONDARY,
-            justify="center",
-        )
-        hint_label.pack()
-    
-    def _attempt_login(self) -> None:
-        """Attempt to login with provided credentials."""
-        username = self.username_entry.get().strip()
-        password = self.password_entry.get()
-        
-        if not username or not password:
-            self.error_label.configure(text="Please enter both username and password")
-            return
-        
-        try:
-            # Attempt login
-            user = self.auth_service.login(username, password)
-            
-            if user:
-                # Login successful
-                self.destroy()
-                
-                # Launch main application
-                from ui.app import App
-                app = App(user=user, connection_manager=self.connection_manager)
-                app.run()
-            else:
-                # Login failed
-                self.error_label.configure(text="Invalid username or password")
-                self.password_entry.delete(0, 'end')
-                
-        except Exception as e:
-            self.error_label.configure(text=f"Login error: {str(e)}")
-    
-    def run(self) -> None:
-        """Start the login application main loop."""
-        self.mainloop()
-
-
 class App(ctk.CTk):
     """Main application window for Shoukat POS.
     
@@ -298,25 +115,11 @@ class App(ctk.CTk):
         router: ScreenRouter instance for navigation.
         sidebar: Navigation sidebar frame.
         content_area: Main content area frame.
-        current_user: Currently logged-in user.
-        connection_manager: Database connection manager.
     """
     
-    def __init__(
-        self,
-        user: Optional[Dict[str, Any]] = None,
-        connection_manager: Optional[ConnectionManager] = None
-    ) -> None:
-        """Initialize the main application.
-        
-        Args:
-            user: Logged-in user dictionary.
-            connection_manager: Database connection manager instance.
-        """
+    def __init__(self) -> None:
+        """Initialize the main application."""
         super().__init__()
-        
-        self.current_user = user or {"username": "admin", "role": "admin"}
-        self.connection_manager = connection_manager
         
         # Apply theme
         self.theme = Theme()
@@ -396,21 +199,12 @@ class App(ctk.CTk):
         
         user_label = ctk.CTkLabel(
             bottom_frame,
-            text=f"👤 {self.current_user.get('username', 'User')}",
+            text="👤 Admin",
             text_color=Colors.CARD,
             font=(Fonts.PRIMARY, Fonts.SM),
             anchor="w",
         )
         user_label.pack(fill="x")
-        
-        role_label = ctk.CTkLabel(
-            bottom_frame,
-            text=self.current_user.get('role', 'user').title(),
-            text_color=Colors.CARD,
-            font=(Fonts.PRIMARY, Fonts.XS),
-            anchor="w",
-        )
-        role_label.pack(fill="x")
         
         logout_btn = ctk.CTkButton(
             bottom_frame,
@@ -423,7 +217,6 @@ class App(ctk.CTk):
             text_color=Colors.CARD,
             hover_color=Colors.PRIMARY_LIGHT,
             font=(Fonts.PRIMARY, Fonts.SM),
-            command=self._logout,
         )
         logout_btn.pack(fill="x", pady=(8, 0))
     
@@ -480,41 +273,20 @@ class App(ctk.CTk):
     
     def _register_screens(self) -> None:
         """Register all application screens with the router."""
-        try:
-            from ui.screens.dashboard_screen import DashboardScreen
-            self.router.register("dashboard", DashboardScreen)
-        except Exception as e:
-            print(f"Warning: Could not register dashboard: {e}")
+        from ui.screens.dashboard_screen import DashboardScreen
+        from ui.screens.sales.new_sale import NewSaleScreen
+        from ui.screens.products.product_list import ProductListScreen
+        from ui.screens.customers.customer_manager import CustomerManagerScreen
+        from ui.screens.reports.sales_report import SalesReportScreen
+        from ui.screens.settings.general_settings import GeneralSettingsScreen
         
-        try:
-            from ui.screens.sales.new_sale import NewSaleScreen
-            self.router.register("new_sale", NewSaleScreen)
-        except Exception as e:
-            print(f"Warning: Could not register new_sale: {e}")
-        
-        try:
-            from ui.screens.products.product_list import ProductListScreen
-            self.router.register("products", ProductListScreen)
-        except Exception as e:
-            print(f"Warning: Could not register products: {e}")
-        
-        try:
-            from ui.screens.customers.customer_manager import CustomerManagerScreen
-            self.router.register("customers", CustomerManagerScreen)
-        except Exception as e:
-            print(f"Warning: Could not register customers: {e}")
-        
-        try:
-            from ui.screens.reports.sales_report import SalesReportScreen
-            self.router.register("reports", SalesReportScreen)
-        except Exception as e:
-            print(f"Warning: Could not register reports: {e}")
-        
-        try:
-            from ui.screens.settings.general_settings import GeneralSettingsScreen
-            self.router.register("settings", GeneralSettingsScreen)
-        except Exception as e:
-            print(f"Warning: Could not register settings: {e}")
+        # Register screens
+        self.router.register("dashboard", DashboardScreen)
+        self.router.register("new_sale", NewSaleScreen)
+        self.router.register("products", ProductListScreen)
+        self.router.register("customers", CustomerManagerScreen)
+        self.router.register("reports", SalesReportScreen)
+        self.router.register("settings", GeneralSettingsScreen)
         
         # Navigate to dashboard by default
         self.router.navigate_to("dashboard", push_history=False, animate=False)
@@ -538,14 +310,8 @@ class App(ctk.CTk):
             # Adjust sidebar width
             new_width = config["sidebar_width"]
             self.sidebar.configure(width=new_width)
-    
-    def _logout(self) -> None:
-        """Logout and return to login screen."""
-        self.destroy()
-        
-        # Re-launch login screen
-        login_app = LoginApp(self.connection_manager)
-        login_app.run()
+            
+            # TODO: Adjust other layout elements based on breakpoint
     
     def register_screen(
         self,
